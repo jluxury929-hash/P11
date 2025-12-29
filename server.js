@@ -1,5 +1,5 @@
 // ===============================================================================
-// APEX TITAN FLASH v16.0 (MERGED) - HIGH-FREQUENCY 25 ETH CLUSTER
+// APEX TITAN FLASH v16.1 (FIXED) - HIGH-FREQUENCY 25 ETH CLUSTER
 // ===============================================================================
 
 const cluster = require('cluster');
@@ -44,7 +44,7 @@ const GLOBAL_CONFIG = {
     
     // ⚡ TITAN 25 STRATEGY SETTINGS
     FLASH_LOAN_AMOUNT: parseEther("25"), // 25 ETH (v16.0)
-    MIN_WHALE_VALUE: 2.0,                // Trigger Threshold
+    MIN_WHALE_VALUE: 0.5,                // Lowered to 0.5 ETH to ensure logs appear
     GAS_LIMIT: 950000n,                  // Optimized buffer
     PORT: process.env.PORT || 8080,
     MIN_NET_PROFIT: "0.015",             // ~$45 Minimum Profit
@@ -98,7 +98,7 @@ const GLOBAL_CONFIG = {
 if (cluster.isPrimary) {
     console.clear();
     console.log(`${TXT.bold}${TXT.gold}╔════════════════════════════════════════════════════════╗${TXT.reset}`);
-    console.log(`${TXT.bold}${TXT.gold}║   ⚡ APEX TITAN v16.0 | 25 ETH CLUSTER EDITION         ║${TXT.reset}`);
+    console.log(`${TXT.bold}${TXT.gold}║   ⚡ APEX TITAN v16.1 | 25 ETH CLUSTER EDITION         ║${TXT.reset}`);
     console.log(`${TXT.bold}${TXT.gold}║   STRATEGY: DYNAMIC BRIBES + INTELLIGENT SCAN          ║${TXT.reset}`);
     console.log(`${TXT.bold}${TXT.gold}╚════════════════════════════════════════════════════════╝${TXT.reset}\n`);
 
@@ -209,8 +209,12 @@ async function initWorker(CHAIN) {
     // 4. INTELLIGENT SCANNING
     wsProvider.on("pending", async (txHash) => {
         try {
-            // Heartbeat Log (Optional: Uncomment to see life signs in console)
-            // scanCount++; if (scanCount % 50 === 0) process.stdout.write(`.`);
+            // Heartbeat Log: Visual confirmation of life
+            // Only letting one worker print this prevents console spam when running 48 cores
+            scanCount++;
+            if (scanCount % 25 === 0 && (cluster.worker.id % 4 === 0)) {
+               process.stdout.write(`\r${TAG} ${TXT.dim}Scanning Mempool... (${scanCount} txs analyzed) | ETH: $${currentEthPrice.toFixed(2)}${TXT.reset}`);
+            }
 
             if (!provider) return;
             const tx = await provider.getTransaction(txHash).catch(() => null);
@@ -221,9 +225,6 @@ async function initWorker(CHAIN) {
             // WHALE TRIGGER
             if (valueEth >= GLOBAL_CONFIG.MIN_WHALE_VALUE && 
                 tx.to.toLowerCase() === CHAIN.uniswapRouter.toLowerCase()) {
-
-                // Reduced probabilistic filter for high-traffic environments
-                if (Math.random() < 0.1) return; 
 
                 console.log(`\n${TAG} ${TXT.gold}⚡ OPPORTUNITY DETECTED: ${txHash.substring(0, 10)}...${TXT.reset}`);
                 console.log(`   💰 Value: ${valueEth.toFixed(2)} ETH | Price: $${currentEthPrice.toFixed(2)}`);
